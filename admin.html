@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>1Shopping Admin</title>
+  <style>
+    :root { --ink:#12151a; --muted:#5a6570; --accent:#0f8a6b; --bg:#f3f5f7; --line:#d5dce3; --surface:#fff; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family:Segoe UI,system-ui,sans-serif; background:var(--bg); color:var(--ink); }
+    .wrap { max-width:860px; margin:0 auto; padding:20px 16px 60px; }
+    h1 { margin:0 0 8px; font-size:1.6rem; }
+    .muted { color:var(--muted); font-size:14px; }
+    .card { background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:14px; margin:12px 0; }
+    label { display:block; font-size:13px; color:var(--muted); margin:8px 0 4px; }
+    input[type=text], input[type=password], input[type=url], input[type=number] {
+      width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:10px; font:inherit;
+    }
+    .row { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+    button {
+      border:0; border-radius:10px; padding:10px 14px; background:var(--accent); color:#fff;
+      font-weight:700; cursor:pointer;
+    }
+    button.secondary { background:var(--ink); }
+    button.danger { background:#b3261e; }
+    #gate, #app { display:none; }
+    #gate.show, #app.show { display:block; }
+    .preview { width:100%; aspect-ratio:16/9; object-fit:cover; border-radius:10px; background:#dee4ea; margin-top:8px; }
+    .status { margin-top:10px; font-size:14px; }
+    .ok { color:var(--accent); } .err { color:#b3261e; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div id="gate">
+      <h1>1Shopping Admin</h1>
+      <p class="muted">Enter password to manage deal banners.</p>
+      <div class="card">
+        <label>Password</label>
+        <input id="pw" type="password" autocomplete="current-password" />
+        <div class="row">
+          <button id="unlock" type="button">Unlock</button>
+        </div>
+        <p id="gateMsg" class="status err"></p>
+      </div>
+    </div>
+
+    <div id="app">
+      <h1>Deals admin</h1>
+      <p class="muted">Edit banners, then <strong>Publish</strong> (needs a GitHub token once).</p>
+
+      <div class="card">
+        <label>GitHub token (Contents: Read & write on this repo) — saved in this browser only</label>
+        <input id="token" type="password" placeholder="ghp_..." autocomplete="off" />
+        <p class="muted">Create at GitHub → Settings → Developer settings → Personal access tokens</p>
+      </div>
+
+      <div class="row">
+        <button id="add" type="button">Add banner</button>
+        <button id="reload" class="secondary" type="button">Reload</button>
+        <button id="publish" type="button">Publish live</button>
+        <button id="lock" class="secondary" type="button">Lock</button>
+      </div>
+      <p id="msg" class="status"></p>
+      <div id="list"></div>
+    </div>
+  </div>
+
+  <script>
+    // Password: 1shop2026  (change hash below if you change password)
+    const PASS_SHA256 = '6e5f40c7e081c96d526257d8bb3ddbf3c9a9aaf9ee6bebefc714f43076fe4cde';
+    const REPO = 'updatoapp/oneshopping-admin';
+    const FILE_PATH = 'deals.json';
+    const BRANCH = 'main';
+
+    const gate = document.getElementById('gate');
+    const app = document.getElementById('app');
+    const listEl = document.getElementById('list');
+    const msg = document.getElementById('msg');
+    const tokenInput = document.getElementById('token');
+    let banners = [];
+    let fileSha = null;
+
+    async function sha256(text) {
+      const data = new TextEncoder().encode(text);
+      const buf = await crypto.subtle.digest('SHA-256', data);
+      return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    function show(el) { el.classList.add('show'); }
+    function hide(el) { el.classList.remove('show'); }
+    function setMsg(text, ok) {
+      msg.textContent = text || '';
+      msg.className = 'status ' + (ok ? 'ok' : 'err');
+    }
+
+    function uid() { return 'deal-' + Math.random().toString(36).slice(2, 9); }
+
+    function emptyBanner() {
+      return { id: uid(), title: '', subtitle: '', imageUrl: '', linkUrl: '', enabled: true, order: banners.length + 1 };
+    }
+
+    function escapeAttr(s) {
+      return String(s ?? '').replaceAll('&','&amp;').replaceAll('"','&quot;').replaceAll('<','&lt;');
+    }
+
+    function payload() {
+      return {
+        updatedAt: new Date().toISOString().slice(0, 10),
+        banners: banners.map((b, i) => ({ ...b, order: i + 1 }))
+      };
+    }
+
+    function render() {
+      listEl.innerHTML = '';
+      banners.forEach((b, index) => {
+        const box = document.createElement('div');
+        box.className = 'card';
+        box.innerHTML = `
+          <label>Title</label><input data-k="title" type="text" value="${escapeAttr(b.title)}" />
+          <label>Subtitle</label><input data-k="subtitle" type="text" value="${escapeAttr(b.subtitle)}" />
+          <label>Image URL</label><input data-k="imageUrl" type="url" value="${escapeAttr(b.imageUrl)}" />
+          <label>Link URL</label><input data-k="linkUrl" type="url" value="${escapeAttr(b.linkUrl)}" />
+          <label><input data-k="enabled" type="checkbox" ${b.enabled ? 'checked' : ''}/> Enabled</label>
+          ${b.imageUrl ? `<img class="preview" src="${escapeAttr(b.imageUrl)}" alt="" />` : ''}
+          <div class="row">
+            <button type="button" class="secondary" data-up>Up</button>
+            <button type="button" class="secondary" data-down>Down</button>
+            <button type="button" class="danger" data-del>Delete</button>
+          </div>`;
+        box.querySelectorAll('input').forEach((input) => {
+          input.addEventListener('input', () => {
+            const key = input.dataset.k;
+            if (key === 'enabled') banners[index].enabled = input.checked;
+            else banners[index][key] = input.value;
+            if (key === 'imageUrl') render();
+          });
+        });
+        box.querySelector('[data-del]').onclick = () => { banners.splice(index, 1); render(); };
+        box.querySelector('[data-up]').onclick = () => {
+          if (!index) return;
+          [banners[index - 1], banners[index]] = [banners[index], banners[index - 1]];
+          render();
+        };
+        box.querySelector('[data-down]').onclick = () => {
+          if (index >= banners.length - 1) return;
+          [banners[index + 1], banners[index]] = [banners[index], banners[index + 1]];
+          render();
+        };
+        listEl.appendChild(box);
+      });
+    }
+
+    async function loadDeals() {
+      setMsg('Loading…', true);
+      const url = `https://api.github.com/repos/${REPO}/contents/${FILE_PATH}?ref=${BRANCH}`;
+      const headers = { Accept: 'application/vnd.github+json' };
+      const token = tokenInput.value.trim() || localStorage.getItem('os_gh_token') || '';
+      if (token) headers.Authorization = 'Bearer ' + token;
+      const res = await fetch(url, { headers });
+      if (!res.ok) throw new Error('Load failed: HTTP ' + res.status);
+      const data = await res.json();
+      fileSha = data.sha;
+      const text = atob(data.content.replace(/\n/g, ''));
+      const json = JSON.parse(text);
+      banners = Array.isArray(json.banners) ? json.banners : [];
+      render();
+      setMsg('Loaded ' + banners.length + ' banners', true);
+    }
+
+    async function publish() {
+      const token = tokenInput.value.trim();
+      if (!token) {
+        setMsg('Paste a GitHub token first, then Publish.', false);
+        return;
+      }
+      localStorage.setItem('os_gh_token', token);
+      setMsg('Publishing…', true);
+      const body = JSON.stringify(payload(), null, 2);
+      const content = btoa(unescape(encodeURIComponent(body)));
+      const res = await fetch(`https://api.github.com/repos/${REPO}/contents/${FILE_PATH}`, {
+        method: 'PUT',
+        headers: {
+          Accept: 'application/vnd.github+json',
+          Authorization: 'Bearer ' + token,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          message: 'Update deals from admin',
+          content,
+          sha: fileSha,
+          branch: BRANCH
+        })
+      });
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error('Publish failed: ' + res.status + ' ' + err);
+      }
+      const saved = await res.json();
+      fileSha = saved.content.sha;
+      setMsg('Published. App will pick this up in ~1 minute (pull to refresh Deals).', true);
+    }
+
+    document.getElementById('unlock').onclick = async () => {
+      const hash = await sha256(document.getElementById('pw').value);
+      if (hash !== PASS_SHA256) {
+        document.getElementById('gateMsg').textContent = 'Wrong password';
+        return;
+      }
+      sessionStorage.setItem('os_admin_ok', '1');
+      hide(gate); show(app);
+      tokenInput.value = localStorage.getItem('os_gh_token') || '';
+      try { await loadDeals(); } catch (e) { setMsg(String(e.message || e), false); }
+    };
+
+    document.getElementById('lock').onclick = () => {
+      sessionStorage.removeItem('os_admin_ok');
+      hide(app); show(gate);
+      document.getElementById('pw').value = '';
+    };
+    document.getElementById('add').onclick = () => { banners.push(emptyBanner()); render(); };
+    document.getElementById('reload').onclick = () => loadDeals().catch(e => setMsg(String(e.message || e), false));
+    document.getElementById('publish').onclick = () => publish().catch(e => setMsg(String(e.message || e), false));
+
+    if (sessionStorage.getItem('os_admin_ok') === '1') {
+      hide(gate); show(app);
+      tokenInput.value = localStorage.getItem('os_gh_token') || '';
+      loadDeals().catch(e => setMsg(String(e.message || e), false));
+    } else {
+      show(gate);
+    }
+  </script>
+</body>
+</html>
