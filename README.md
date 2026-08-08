@@ -1,24 +1,15 @@
-﻿# 1Shopping Admin (GitHub Pages)
+﻿# 1Shopping config (GitHub Pages)
 
-Backend/admin panel for the 1Shopping Android app.
+Public files the app reads:
 
-## Live URLs
-After Pages is enabled:
+- https://updatoapp.github.io/oneshopping-admin/deals.json
+- Legal pages (privacy / terms / support)
 
-- Deals admin: https://updatoapp.github.io/oneshopping-admin/deals-admin.html
-- Deals JSON (app reads this): https://updatoapp.github.io/oneshopping-admin/deals.json
-- Privacy: https://updatoapp.github.io/oneshopping-admin/privacy-policy.html
-- Terms: https://updatoapp.github.io/oneshopping-admin/terms-of-service.html
-- Support: https://updatoapp.github.io/oneshopping-admin/support.html
+## Deals admin (private)
+The admin HTML is **not** published. Edit deals locally:
 
-## How to update deals
-1. Open `deals-admin.html` locally or on GitHub Pages
-2. Edit banners → Download `deals.json`
-3. Replace `deals.json` in this repo
-4. Commit and push to `main`
+1. Open `oneshopping/store_pages/deals-admin.html` on your PC
+2. Download updated `deals.json`
+3. Replace `deals.json` here and push to `main`
 
-Or edit `deals.json` directly on GitHub.
-
-## App config
-Flutter app points to:
-`https://updatoapp.github.io/oneshopping-admin/`
+Or edit `deals.json` directly on GitHub while logged in.
