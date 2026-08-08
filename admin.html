@@ -10,10 +10,10 @@
     body { margin:0; font-family:Segoe UI,system-ui,sans-serif; background:var(--bg); color:var(--ink); }
     .wrap { max-width:860px; margin:0 auto; padding:20px 16px 60px; }
     h1 { margin:0 0 8px; font-size:1.6rem; }
-    .muted { color:var(--muted); font-size:14px; }
+    .muted { color:var(--muted); font-size:14px; line-height:1.45; }
     .card { background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:14px; margin:12px 0; }
     label { display:block; font-size:13px; color:var(--muted); margin:8px 0 4px; }
-    input[type=text], input[type=password], input[type=url], input[type=number] {
+    input[type=text], input[type=password], input[type=url] {
       width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:10px; font:inherit;
     }
     .row { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
@@ -28,13 +28,17 @@
     .preview { width:100%; aspect-ratio:16/9; object-fit:cover; border-radius:10px; background:#dee4ea; margin-top:8px; }
     .status { margin-top:10px; font-size:14px; }
     .ok { color:var(--accent); } .err { color:#b3261e; }
+    a.btnlink {
+      display:inline-block; margin-top:8px; padding:10px 14px; border-radius:10px;
+      background:var(--ink); color:#fff; text-decoration:none; font-weight:700;
+    }
   </style>
 </head>
 <body>
   <div class="wrap">
     <div id="gate">
       <h1>1Shopping Admin</h1>
-      <p class="muted">Enter password to manage deal banners.</p>
+      <p class="muted">Password only. No GitHub token.</p>
       <div class="card">
         <label>Password</label>
         <input id="pw" type="password" autocomplete="current-password" />
@@ -47,39 +51,45 @@
 
     <div id="app">
       <h1>Deals admin</h1>
-      <p class="muted">Edit banners, then <strong>Publish</strong> (needs a GitHub token once).</p>
-
-      <div class="card">
-        <label>GitHub token (Contents: Read & write on this repo) — saved in this browser only</label>
-        <input id="token" type="password" placeholder="ghp_..." autocomplete="off" />
-        <p class="muted">Create at GitHub → Settings → Developer settings → Personal access tokens</p>
-      </div>
+      <p class="muted">
+        Edit banners → <strong>Save file</strong> → on GitHub click
+        <em>Upload / replace deals.json</em> → commit.
+      </p>
 
       <div class="row">
         <button id="add" type="button">Add banner</button>
         <button id="reload" class="secondary" type="button">Reload</button>
-        <button id="publish" type="button">Publish live</button>
+        <button id="save" type="button">Save file</button>
         <button id="lock" class="secondary" type="button">Lock</button>
       </div>
       <p id="msg" class="status"></p>
+      <div id="afterSave" class="card" style="display:none">
+        <strong>Next step (30 seconds):</strong>
+        <ol class="muted">
+          <li>deals.json downloaded</li>
+          <li>Open the GitHub upload page (logged in)</li>
+          <li>Drag the downloaded file onto the page → Commit</li>
+        </ol>
+        <a class="btnlink" id="ghUpload" target="_blank" rel="noopener"
+           href="https://github.com/updatoapp/oneshopping-admin/upload/main">
+          Open GitHub upload
+        </a>
+      </div>
       <div id="list"></div>
     </div>
   </div>
 
   <script>
-    // Password: 1shop2026  (change hash below if you change password)
+    // Password: 1shop2026
     const PASS_SHA256 = '6e5f40c7e081c96d526257d8bb3ddbf3c9a9aaf9ee6bebefc714f43076fe4cde';
-    const REPO = 'updatoapp/oneshopping-admin';
-    const FILE_PATH = 'deals.json';
-    const BRANCH = 'main';
+    const DEALS_URL = 'https://updatoapp.github.io/oneshopping-admin/deals.json';
 
     const gate = document.getElementById('gate');
     const app = document.getElementById('app');
     const listEl = document.getElementById('list');
     const msg = document.getElementById('msg');
-    const tokenInput = document.getElementById('token');
+    const afterSave = document.getElementById('afterSave');
     let banners = [];
-    let fileSha = null;
 
     async function sha256(text) {
       const data = new TextEncoder().encode(text);
@@ -95,15 +105,12 @@
     }
 
     function uid() { return 'deal-' + Math.random().toString(36).slice(2, 9); }
-
     function emptyBanner() {
       return { id: uid(), title: '', subtitle: '', imageUrl: '', linkUrl: '', enabled: true, order: banners.length + 1 };
     }
-
     function escapeAttr(s) {
       return String(s ?? '').replaceAll('&','&amp;').replaceAll('"','&quot;').replaceAll('<','&lt;');
     }
-
     function payload() {
       return {
         updatedAt: new Date().toISOString().slice(0, 10),
@@ -153,52 +160,30 @@
 
     async function loadDeals() {
       setMsg('Loading…', true);
-      const url = `https://api.github.com/repos/${REPO}/contents/${FILE_PATH}?ref=${BRANCH}`;
-      const headers = { Accept: 'application/vnd.github+json' };
-      const token = tokenInput.value.trim() || localStorage.getItem('os_gh_token') || '';
-      if (token) headers.Authorization = 'Bearer ' + token;
-      const res = await fetch(url, { headers });
+      afterSave.style.display = 'none';
+      const res = await fetch(DEALS_URL + '?t=' + Date.now());
       if (!res.ok) throw new Error('Load failed: HTTP ' + res.status);
-      const data = await res.json();
-      fileSha = data.sha;
-      const text = atob(data.content.replace(/\n/g, ''));
-      const json = JSON.parse(text);
+      const json = await res.json();
       banners = Array.isArray(json.banners) ? json.banners : [];
       render();
       setMsg('Loaded ' + banners.length + ' banners', true);
     }
 
-    async function publish() {
-      const token = tokenInput.value.trim();
-      if (!token) {
-        setMsg('Paste a GitHub token first, then Publish.', false);
-        return;
-      }
-      localStorage.setItem('os_gh_token', token);
-      setMsg('Publishing…', true);
+    function saveFile() {
       const body = JSON.stringify(payload(), null, 2);
-      const content = btoa(unescape(encodeURIComponent(body)));
-      const res = await fetch(`https://api.github.com/repos/${REPO}/contents/${FILE_PATH}`, {
-        method: 'PUT',
-        headers: {
-          Accept: 'application/vnd.github+json',
-          Authorization: 'Bearer ' + token,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          message: 'Update deals from admin',
-          content,
-          sha: fileSha,
-          branch: BRANCH
-        })
-      });
-      if (!res.ok) {
-        const err = await res.text();
-        throw new Error('Publish failed: ' + res.status + ' ' + err);
-      }
-      const saved = await res.json();
-      fileSha = saved.content.sha;
-      setMsg('Published. App will pick this up in ~1 minute (pull to refresh Deals).', true);
+      const blob = new Blob([body], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'deals.json';
+      a.click();
+      URL.revokeObjectURL(a.href);
+      afterSave.style.display = 'block';
+      setMsg('Saved deals.json to your Downloads. Upload it on GitHub (button below).', true);
+    }
+
+    function enterApp() {
+      hide(gate); show(app);
+      loadDeals().catch(e => setMsg(String(e.message || e), false));
     }
 
     document.getElementById('unlock').onclick = async () => {
@@ -208,9 +193,7 @@
         return;
       }
       sessionStorage.setItem('os_admin_ok', '1');
-      hide(gate); show(app);
-      tokenInput.value = localStorage.getItem('os_gh_token') || '';
-      try { await loadDeals(); } catch (e) { setMsg(String(e.message || e), false); }
+      enterApp();
     };
 
     document.getElementById('lock').onclick = () => {
@@ -220,15 +203,10 @@
     };
     document.getElementById('add').onclick = () => { banners.push(emptyBanner()); render(); };
     document.getElementById('reload').onclick = () => loadDeals().catch(e => setMsg(String(e.message || e), false));
-    document.getElementById('publish').onclick = () => publish().catch(e => setMsg(String(e.message || e), false));
+    document.getElementById('save').onclick = saveFile;
 
-    if (sessionStorage.getItem('os_admin_ok') === '1') {
-      hide(gate); show(app);
-      tokenInput.value = localStorage.getItem('os_gh_token') || '';
-      loadDeals().catch(e => setMsg(String(e.message || e), false));
-    } else {
-      show(gate);
-    }
+    if (sessionStorage.getItem('os_admin_ok') === '1') enterApp();
+    else show(gate);
   </script>
 </body>
 </html>
