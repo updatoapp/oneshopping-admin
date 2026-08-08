@@ -1,0 +1,32 @@
+{
+  "updatedAt": "2026-08-08",
+  "banners": [
+    {
+      "id": "flipkart-extra",
+      "title": "Flipkart deals",
+      "subtitle": "Shop offers via ExtraPe",
+      "imageUrl": "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1200&q=80",
+      "linkUrl": "https://fkrt.co/cT31QJ",
+      "enabled": true,
+      "order": 1
+    },
+    {
+      "id": "myntra-extra",
+      "title": "Myntra fashion sale",
+      "subtitle": "Styles & discounts",
+      "imageUrl": "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=1200&q=80",
+      "linkUrl": "https://myntr.in/wWgSAY",
+      "enabled": true,
+      "order": 2
+    },
+    {
+      "id": "tatacliq-extra",
+      "title": "Tata Cliq offers",
+      "subtitle": "Electronics & more",
+      "imageUrl": "https://images.unsplash.com/photo-1468495244123-6c6c332eeece?w=1200&q=80",
+      "linkUrl": "https://extp.in/yIg4I4",
+      "enabled": true,
+      "order": 3
+    }
+  ]
+}
