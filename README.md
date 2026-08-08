@@ -1,13 +1,22 @@
 ﻿# 1Shopping Admin (PRIVATE)
 
-Only you / collaborators can access this repo.
+Only GitHub collaborators can open this repo.
 
-## Deals admin
-- Open `deals-admin.html` in this repo (download / open locally), or use the public data Pages sync below.
+## Open the admin panel
+1. Clone/pull this repo on your PC  
+2. Open `deals-admin.html` in Chrome (double-click)  
+3. Edit banners → **Download deals.json** → replace `deals.json` in this folder  
+4. Commit & push this private repo  
+5. Publish to the app:
+   ```powershell
+   .\publish-to-public-data.ps1
+   ```
 
-## App-facing public data
-The Android app reads deals from the public repo:
-https://github.com/updatoapp/oneshopping-data
+That updates the public Pages file the app reads:  
 https://updatoapp.github.io/oneshopping-data/deals.json
 
-After editing deals here, copy `deals.json` into `oneshopping-data` and push (or run sync script).
+## Why two repos?
+GitHub free plan cannot host Pages on a **private** repo.  
+So:
+- **oneshopping-admin** (private) = admin panel  
+- **oneshopping-data** (public) = JSON/legal the app loads  
