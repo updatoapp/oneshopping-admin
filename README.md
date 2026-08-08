@@ -1,15 +1,13 @@
-﻿# 1Shopping config (GitHub Pages)
+﻿# 1Shopping Admin (PRIVATE)
 
-Public files the app reads:
+Only you / collaborators can access this repo.
 
-- https://updatoapp.github.io/oneshopping-admin/deals.json
-- Legal pages (privacy / terms / support)
+## Deals admin
+- Open `deals-admin.html` in this repo (download / open locally), or use the public data Pages sync below.
 
-## Deals admin (private)
-The admin HTML is **not** published. Edit deals locally:
+## App-facing public data
+The Android app reads deals from the public repo:
+https://github.com/updatoapp/oneshopping-data
+https://updatoapp.github.io/oneshopping-data/deals.json
 
-1. Open `oneshopping/store_pages/deals-admin.html` on your PC
-2. Download updated `deals.json`
-3. Replace `deals.json` here and push to `main`
-
-Or edit `deals.json` directly on GitHub while logged in.
+After editing deals here, copy `deals.json` into `oneshopping-data` and push (or run sync script).
